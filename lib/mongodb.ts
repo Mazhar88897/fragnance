@@ -1,4 +1,4 @@
-import { MongoClient, Db, ServerApiVersion, type Collection } from "mongodb";
+import { MongoClient, Db, type Collection, type MongoClientOptions } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 
@@ -7,34 +7,112 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
+/**
+ * Atlas on Vercel often fails TLS with the legacy host list + ssl=true string.
+ * On Vercel we convert to mongodb+srv (SRV DNS works there).
+ * Locally many Windows DNS setups refuse SRV lookups, so keep the host list.
+ */
+function normalizeMongoUri(raw: string): string {
+  let value = raw.trim();
+
+  // Strip wrapping quotes that sometimes get pasted into Vercel env vars
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+
+  if (value.startsWith("mongodb+srv://")) {
+    return ensureSrvQuery(value);
+  }
+
+  const onVercel = Boolean(process.env.VERCEL);
+
+  // Convert legacy mongodb://shard-00-00.host,... → mongodb+srv (Vercel only)
+  if (onVercel) {
+    const legacy = value.match(
+      /^mongodb:\/\/([^@]+)@([^/?]+)(?:\/([^?]*))?(?:\?(.*))?$/i
+    );
+    if (legacy) {
+      const [, auth, hosts, dbName = "", query = ""] = legacy;
+      const firstHost = hosts.split(",")[0]?.trim() ?? "";
+      const hostNoPort = firstHost.replace(/:\d+$/, "");
+      const atlasBase = hostNoPort.match(/^[^.]+\.(.+)$/);
+      if (atlasBase && /\.mongodb\.net$/i.test(atlasBase[1])) {
+        const clusterHost = `cluster0.${atlasBase[1]}`;
+        const params = new URLSearchParams(query);
+        params.delete("ssl");
+        params.delete("replicaSet");
+        params.delete("tls");
+        if (!params.has("retryWrites")) params.set("retryWrites", "true");
+        if (!params.has("w")) params.set("w", "majority");
+        if (!params.has("appName") && !params.has("appname")) {
+          params.set("appName", "fragnance");
+        }
+        const path = dbName ? `/${dbName}` : "/";
+        return `mongodb+srv://${auth}@${clusterHost}${path}?${params.toString()}`;
+      }
+    }
+  }
+
+  // Local / fallback: convert ssl=true → tls=true (driver prefers tls)
+  value = value.replace(/([?&])ssl=true/gi, "$1tls=true");
+  value = value.replace(/([?&])ssl=1/gi, "$1tls=true");
+
+  if (!/[?&]tls=/i.test(value)) {
+    value += value.includes("?") ? "&tls=true" : "?tls=true";
+  }
+  if (!/[?&]retryWrites=/i.test(value)) {
+    value += "&retryWrites=true";
+  }
+  if (!/[?&]w=/i.test(value)) {
+    value += "&w=majority";
+  }
+
+  return value;
+}
+
+function ensureSrvQuery(value: string): string {
+  const [base, query = ""] = value.split("?");
+  const params = new URLSearchParams(query);
+  if (!params.has("retryWrites")) params.set("retryWrites", "true");
+  if (!params.has("w")) params.set("w", "majority");
+  const q = params.toString();
+  return q ? `${base}?${q}` : base;
+}
+
+function clientOptions(): MongoClientOptions {
+  const onVercel = Boolean(process.env.VERCEL);
+
+  const options: MongoClientOptions = {
+    serverSelectionTimeoutMS: 20000,
+    connectTimeoutMS: 20000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: onVercel ? 5 : 10,
+    minPoolSize: 0,
+    // Critical for Node 18+/OpenSSL Happy Eyeballs vs Atlas
+    autoSelectFamily: false,
+  };
+
+  // Force IPv4 — Atlas TLS alert 80 is commonly IPv6-related
+  options.family = 4;
+
+  return options;
+}
+
 function createClientPromise(): Promise<MongoClient> {
   if (!uri) {
     throw new Error("Missing MONGODB_URI in environment");
   }
 
-  // Vercel/serverless + Atlas often fails TLS when Node auto-picks IPv6.
-  // Cache one client across warm invocations; drop rejected promises so
-  // cold starts can recover.
-  const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: false,
-      deprecationErrors: false,
-    },
-    serverSelectionTimeoutMS: 15000,
-    connectTimeoutMS: 15000,
-    // Avoid Happy Eyeballs IPv6-first handshake failures to Atlas.
-    autoSelectFamily: false,
-    family: 4,
-    tls: true,
-    maxPoolSize: 10,
-    minPoolSize: 0,
-  });
-
+  const normalized = normalizeMongoUri(uri);
+  const client = new MongoClient(normalized, clientOptions());
   return client.connect();
 }
 
 function getClientPromise(): Promise<MongoClient> {
+  // Always cache on the global — required for Vercel warm serverless reuse
   if (!global._mongoClientPromise) {
     global._mongoClientPromise = createClientPromise().catch((err) => {
       global._mongoClientPromise = undefined;
@@ -47,6 +125,25 @@ function getClientPromise(): Promise<MongoClient> {
 export async function getDb(dbName = "fragnance"): Promise<Db> {
   const client = await getClientPromise();
   return client.db(dbName);
+}
+
+/** Used by /api/health/db — does not expose secrets */
+export function getMongoUriDiagnostics() {
+  const raw = process.env.MONGODB_URI ?? "";
+  const normalized = raw ? normalizeMongoUri(raw) : "";
+  return {
+    present: Boolean(raw),
+    length: raw.length,
+    rawIsSrv: raw.trim().startsWith("mongodb+srv://"),
+    normalizedIsSrv: normalized.startsWith("mongodb+srv://"),
+    hasTlsFlag: /[?&]tls=true/i.test(normalized),
+    hasSslFlag: /[?&]ssl=true/i.test(raw),
+    hostPreview: normalized
+      ? normalized.replace(/\/\/[^@]+@/, "//***:***@").slice(0, 140)
+      : null,
+    onVercel: Boolean(process.env.VERCEL),
+    node: process.version,
+  };
 }
 
 export type ConnectionTestDoc = {
