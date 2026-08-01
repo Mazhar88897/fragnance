@@ -37,8 +37,8 @@ function parseRating(value: unknown): { rating?: number; error?: string } {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return { error: "rating must be a number" };
   }
-  if (value < 1 || value > 5) {
-    return { error: "rating must be between 1 and 5" };
+  if (value < 1 || value > 10) {
+    return { error: "rating must be between 1 and 10" };
   }
   return { rating: value };
 }
@@ -99,12 +99,16 @@ export async function POST(request: NextRequest) {
     const fragranceErr = await assertFragranceExists(fragranceObjectId);
     if (fragranceErr) return jsonError(fragranceErr, 400);
 
+    if (body.approval !== undefined && typeof body.approval !== "boolean") {
+      return jsonError("approval must be a boolean", 400);
+    }
+
     const now = new Date();
     const doc: ReviewDoc = {
       fragrance_id: fragranceObjectId,
       name,
       review,
-      approval: false,
+      approval: body.approval === true,
       rating: ratingParsed.rating,
       created_at: now,
       updated_at: now,

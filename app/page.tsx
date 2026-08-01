@@ -1,27 +1,23 @@
 import Hero from "@/components/Hero";
-import PopularCourses from "@/components/PopularCourses";
-import FeaturesOffer from "@/components/FeaturesOffer";
-import HowItWorks from "@/components/HowItWorks";
-import Testimonial from "@/components/Testimonial";
 import TopBar from "@/components/TopBar";
-import Contact from "@/components/Contact";
-import Faq from "@/components/Faq";
-import TestCase from "@/components/TestCase";
-import Footer from "@/components/Footer";
+import FragranceStrip from "@/components/FragranceStrip";
+import FragranceCabinet from "@/components/FragranceCabinet";
+import FragranceFavourites from "@/components/FragranceFavourites";
+import AddFragrance from "@/components/AddFragrance";
+import FragranceNotes from "@/components/FragranceNotes";
+import BottomBar from "@/components/BottomBar";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#F2F0E4]">
+    <main className="min-h-screen bg-white">
       <TopBar />
       <Hero />
-      <PopularCourses />
-      <FeaturesOffer />
-      <HowItWorks />
-      {/* <TestCase /> */}
-      {/* <Testimonial /> */}
-      {/* <Contact /> */}
-      {/* <Faq /> */}
-      <Footer />
+      <FragranceStrip />
+      <FragranceCabinet />
+      <FragranceFavourites />
+      <AddFragrance />
+      <FragranceNotes />
+      <BottomBar />
     </main>
   );
 }

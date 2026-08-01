@@ -1,50 +1,56 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-const navButtonClass =
-  "inline-flex items-center justify-center border-2 border-black px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-[4px_4px_0_#000] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#000] sm:px-5 sm:text-sm";
+const navLinks = [
+  { href: "/cabinet", label: "Cabinet" },
+  { href: "/favourites", label: "Favourites" },
+  { href: "/notes", label: "Notes" },
+  { href: "/add-scent", label: "Add a scent" },
+];
 
 export default function TopBar() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
+  function linkClass(href: string) {
+    const active = pathname === href || pathname.startsWith(`${href}/`);
+    return `text-[0.7rem] font-medium uppercase tracking-[0.14em] transition-opacity lg:text-[0.75rem] ${
+      active
+        ? "text-black"
+        : "text-[#3a3a3a] hover:opacity-60"
+    }`;
+  }
+
   return (
-    <header className="w-full border-b-2 border-black bg-white">
-      <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <span
-            className="inline-block h-3.5 w-3.5 shrink-0 bg-[#DC2626]"
-            style={{ transform: "rotate(12deg)" }}
-            aria-hidden
-          />
-          <span className="text-sm font-extrabold uppercase tracking-wide text-black sm:text-base">
-            Grademark
-          </span>
+    <header className="w-full border-b border-[#3a3a3a] bg-white">
+      <div className="mx-auto flex h-[4.25rem] max-w-[1400px] items-center justify-between px-5 sm:px-8 lg:px-12">
+        <Link
+          href="/"
+          className="text-[0.95rem] font-medium uppercase tracking-[0.12em] text-[#3a3a3a] sm:text-[1.05rem]"
+        >
+          Mister Fragrant
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-3 sm:flex">
-          <Link
-            href="/"
-            className={`${navButtonClass} bg-white text-black`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/auth/login"
-            className={`${navButtonClass} bg-[#1D4ED8] text-white`}
-          >
-            Log in
-          </Link>
+        <nav className="hidden items-center gap-8 md:flex lg:gap-10">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={linkClass(link.href)}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
-        {/* Mobile menu toggle */}
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center border-2 border-black bg-white shadow-[3px_3px_0_#000] sm:hidden"
+          className="flex h-9 w-9 items-center justify-center text-[#3a3a3a] md:hidden"
           aria-label={isOpen ? "Close menu" : "Open menu"}
           onClick={() => setIsOpen((open) => !open)}
         >
@@ -52,23 +58,19 @@ export default function TopBar() {
         </button>
       </div>
 
-      {/* Mobile dropdown */}
       {isOpen ? (
-        <nav className="flex flex-col gap-3 border-t-2 border-black px-4 py-4 sm:hidden">
-          <Link
-            href="/"
-            onClick={() => setIsOpen(false)}
-            className={`${navButtonClass} w-full bg-white text-black`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/auth/login"
-            onClick={() => setIsOpen(false)}
-            className={`${navButtonClass} w-full bg-[#1D4ED8] text-white`}
-          >
-            Log in
-          </Link>
+        <nav className="flex flex-col gap-4 border-t border-[#3a3a3a] px-5 py-5 md:hidden">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setIsOpen(false)}
+              className={linkClass(link.href)}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
       ) : null}
     </header>

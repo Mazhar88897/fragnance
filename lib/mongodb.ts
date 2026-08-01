@@ -13,14 +13,22 @@ function createClientPromise(): Promise<MongoClient> {
   }
   const client = new MongoClient(uri, {
     serverSelectionTimeoutMS: 20000,
+    // Prefer IPv4; some Windows/ISP setups fail TLS over IPv6 to Atlas.
     family: 4,
   });
   return client.connect();
 }
 
 function getClientPromise(): Promise<MongoClient> {
+  // Cache one client in development (HMR), but drop a rejected promise so
+  // transient TLS / network errors can recover without restarting the server.
   if (process.env.NODE_ENV === "development") {
-    global._mongoClientPromise ??= createClientPromise();
+    if (!global._mongoClientPromise) {
+      global._mongoClientPromise = createClientPromise().catch((err) => {
+        global._mongoClientPromise = undefined;
+        throw err;
+      });
+    }
     return global._mongoClientPromise;
   }
   return createClientPromise();

@@ -109,9 +109,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as FragranceInput;
     const name = body.name?.trim();
-    const brand = body.brand?.trim();
+    const brand = body.brand?.trim() ?? "";
     if (!name) return jsonError("name is required", 400);
-    if (!brand) return jsonError("brand is required", 400);
 
     const occasionParsed = parseIdList(body.occasion ?? [], "occasion");
     if (occasionParsed.error) return jsonError(occasionParsed.error, 400);

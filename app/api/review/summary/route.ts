@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { getReviewsCollection } from "@/lib/mongodb";
+import {
+  getFragrancesCollection,
+  getNamedEntityCollection,
+  getReviewsCollection,
+} from "@/lib/mongodb";
 
 function jsonError(message: string, status: number, details?: unknown) {
   return NextResponse.json({ ok: false, message, details }, { status });
@@ -8,7 +12,7 @@ function jsonError(message: string, status: number, details?: unknown) {
 
 /**
  * GET /api/review/summary?fragrance_id=...
- * Approved reviews only: aggregate votes + name/review/rating list.
+ * Fragrance details (occasion + scent_type names) + approved review aggregates.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,70 +25,103 @@ export async function GET(request: NextRequest) {
     }
 
     const fragranceObjectId = new ObjectId(fragranceId);
-    const col = await getReviewsCollection();
+    const fragrancesCol = await getFragrancesCollection();
+    const fragrance = await fragrancesCol.findOne({ _id: fragranceObjectId });
 
-    const [aggregate] = await col
-      .aggregate<{
-        total_votes: number;
-        average_rating: number | null;
-        reviews: { name: string; review: string; rating: number }[];
-      }>([
-        {
-          $match: {
-            fragrance_id: fragranceObjectId,
-            approval: true,
-          },
-        },
-        {
-          $facet: {
-            stats: [
-              {
-                $group: {
-                  _id: null,
-                  total_votes: { $sum: 1 },
-                  average_rating: { $avg: "$rating" },
-                },
-              },
-            ],
-            reviews: [
-              { $sort: { created_at: -1 } },
-              {
-                $project: {
-                  _id: 0,
-                  name: 1,
-                  review: 1,
-                  rating: 1,
-                },
-              },
-            ],
-          },
-        },
-        {
-          $project: {
-            total_votes: {
-              $ifNull: [{ $arrayElemAt: ["$stats.total_votes", 0] }, 0],
-            },
-            average_rating: {
-              $ifNull: [{ $arrayElemAt: ["$stats.average_rating", 0] }, null],
-            },
-            reviews: 1,
-          },
-        },
-      ])
-      .toArray();
+    if (!fragrance) {
+      return jsonError("fragrance not found", 404);
+    }
 
-    const totalVotes = aggregate?.total_votes ?? 0;
+    const occasionCol = await getNamedEntityCollection("occasion");
+    const scentCol = await getNamedEntityCollection("scent_type");
+    const reviewsCol = await getReviewsCollection();
+
+    const [occasions, scentTypes, aggregate] = await Promise.all([
+      fragrance.occasion?.length
+        ? occasionCol.find({ _id: { $in: fragrance.occasion } }).toArray()
+        : Promise.resolve([]),
+      fragrance.scent_type?.length
+        ? scentCol.find({ _id: { $in: fragrance.scent_type } }).toArray()
+        : Promise.resolve([]),
+      reviewsCol
+        .aggregate<{
+          total_votes: number;
+          average_rating: number | null;
+          reviews: { name: string; review: string; rating: number }[];
+        }>([
+          {
+            $match: {
+              fragrance_id: fragranceObjectId,
+              approval: true,
+            },
+          },
+          {
+            $facet: {
+              stats: [
+                {
+                  $group: {
+                    _id: null,
+                    total_votes: { $sum: 1 },
+                    average_rating: { $avg: "$rating" },
+                  },
+                },
+              ],
+              reviews: [
+                { $sort: { created_at: -1 } },
+                {
+                  $project: {
+                    _id: 0,
+                    name: 1,
+                    review: 1,
+                    rating: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $project: {
+              total_votes: {
+                $ifNull: [{ $arrayElemAt: ["$stats.total_votes", 0] }, 0],
+              },
+              average_rating: {
+                $ifNull: [{ $arrayElemAt: ["$stats.average_rating", 0] }, null],
+              },
+              reviews: 1,
+            },
+          },
+        ])
+        .toArray(),
+    ]);
+
+    const stats = aggregate[0];
+    const totalVotes = stats?.total_votes ?? 0;
     const average =
-      aggregate?.average_rating == null
+      stats?.average_rating == null
         ? null
-        : Math.round(aggregate.average_rating * 100) / 100;
+        : Math.round(stats.average_rating * 100) / 100;
 
     return NextResponse.json({
       ok: true,
-      fragrance_id: fragranceId,
+      fragrance: {
+        id: fragrance._id!.toHexString(),
+        name: fragrance.name,
+        brand: fragrance.brand,
+        occasion: occasions.map((o) => ({
+          id: o._id!.toHexString(),
+          name: o.name,
+          description: o.description,
+        })),
+        scent_type: scentTypes.map((s) => ({
+          id: s._id!.toHexString(),
+          name: s.name,
+          description: s.description,
+        })),
+        associate_links: fragrance.associate_links ?? [],
+      },
       total_votes: totalVotes,
       average_rating: average,
-      reviews: aggregate?.reviews ?? [],
+      reviews: stats?.reviews ?? [],
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

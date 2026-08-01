@@ -1,82 +1,42 @@
 import Link from "next/link";
-import HeroQuizWalkthrough from "@/components/HeroQuizWalkthrough";
 
-const TICKER_ITEMS = [
-  "GCSE CHEMISTRY",
-  "GCSE PHYSICS",
-  "A LEVEL MATHS",
-  "A LEVEL BIOLOGY",
-  "A LEVEL CHEMISTRY",
-  "A LEVEL PHYSICS",
-  "GCSE MATHS",
-  "GCSE BIOLOGY",
+const actions = [
+  { href: "/occasion", label: "Match a scent to the occasion" },
+  { href: "/compare", label: "Compare fragrances side by side" },
+  { href: "/reviews", label: "Read the reviews" },
+  { href: "/buy", label: "Links to where to buy" },
 ];
-
-function TickerStrip({ stripId }: { stripId: string }) {
-  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
-  return (
-    <div className="ticker-strip" aria-hidden={stripId === "b"}>
-      {items.map((item, index) => (
-        <span key={`${stripId}-${item}-${index}`} className="ticker-item">
-          ★ {item}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 export default function Hero() {
   return (
-    <section className="flex min-h-screen flex-col border-b-2 border-black bg-[#F2F0E4] font-sans">
-      <div className="flex flex-1 flex-col lg:flex-row">
-        {/* Left — headline & CTAs */}
-        <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-10 lg:px-16 xl:px-20">
-          <h1 className="max-w-2xl text-[2rem] font-extrabold uppercase leading-[1.05] tracking-tight text-black sm:text-[2.75rem] lg:text-[3.25rem] xl:text-[3.75rem]">
-            Pass the exam.
-            <br />
-            Not the guesswork.
-          </h1>
-
-          <p className="mt-6 max-w-xl text-sm leading-relaxed text-black sm:text-base">
-            GCSE and A Level Maths and Science practice — every question is free
-            text, marked by AI for meaning rather than ticking boxes. You&apos;ll
-            get the mark, the reasoning, and the model answer that would&apos;ve
-            scored full marks, plus an AI assistant on hand whenever you&apos;re
-            stuck, across Foundation and Higher tiers.
-          </p>
-
-          <p className="mt-4 max-w-xl text-xs font-semibold uppercase leading-relaxed text-[#DC2626] sm:text-sm">
-            Every question written to the syllabus — but these are practice
-            papers, not real exams.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Link
-              href="/auth/register"
-              className="inline-flex items-center justify-center border-2 border-black bg-[#1D4ED8] px-6 py-3 text-xs font-bold uppercase tracking-wide text-white shadow-[4px_4px_0_#000] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#000] sm:px-8 sm:text-sm"
-            >
-              Get started
-            </Link>
-            <Link
-              href="/main/courses"
-              className="inline-flex items-center justify-center border-2 border-black bg-white px-6 py-3 text-xs font-bold uppercase tracking-wide text-black shadow-[4px_4px_0_#000] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#000] sm:px-8 sm:text-sm"
-            >
-              See subjects &amp; pricing
-            </Link>
+    <section className="flex min-h-[calc(100vh-4.25rem)] flex-col justify-center bg-white px-5 sm:px-8 lg:px-12">
+      <div className="mx-auto w-full max-w-[1400px]">
+        <div className="mb-8 -rotate-1 border border-black bg-white shadow-[3px_3px_0_#000] sm:mb-10">
+          <div className="px-3 py-1 sm:px-4 ">
+            <p className="font-[family-name:var(--font-geist-mono)] text-[0.65rem] font-medium uppercase tracking-[0.18em] text-black sm:text-[0.7rem]">
+              Mister Fragrant
+            </p>
           </div>
         </div>
 
-        {/* Right — interactive quiz walkthrough */}
-        <div className="flex flex-1 items-center justify-center border-t-2 border-black px-4 py-10 lg:border-t-0 lg:border-l-2 lg:px-8 lg:py-12">
-          <HeroQuizWalkthrough />
-        </div>
-      </div>
+        <h1 className="max-w-[14ch] font-[family-name:var(--font-hero-serif)] text-[clamp(2.75rem,8vw,6.5rem)] font-medium leading-[0.95] tracking-[-0.02em] text-black">
+          Stay cool. Smell great.
+        </h1>
 
-      {/* Continuous auto-sliding subject strip */}
-      <div className="ticker-viewport border-t-2 border-black bg-black py-3">
-        <div className="ticker-track" aria-label="Featured subjects">
-          <TickerStrip stripId="a" />
-          <TickerStrip stripId="b" />
+        <div className="mt-10 flex max-w-xl flex-col gap-3 sm:mt-12 sm:gap-3.5">
+          {actions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="inline-flex w-full items-center gap-3 border-2 border-black bg-white px-4 py-3.5 font-[family-name:var(--font-geist-mono)] text-[0.65rem] font-medium uppercase tracking-[0.08em] text-black shadow-[4px_4px_0_#000] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#000] sm:w-auto sm:max-w-md sm:text-[0.7rem]"
+            >
+              <span
+                className="inline-block h-2.5 w-2.5 shrink-0 bg-black"
+                aria-hidden
+              />
+              {action.label}
+            </Link>
+          ))}
         </div>
       </div>
     </section>
