@@ -1,4 +1,4 @@
-import { MongoClient, Db, type Collection } from "mongodb";
+import { MongoClient, Db, ServerApiVersion, type Collection } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 
@@ -11,27 +11,37 @@ function createClientPromise(): Promise<MongoClient> {
   if (!uri) {
     throw new Error("Missing MONGODB_URI in environment");
   }
+
+  // Vercel/serverless + Atlas often fails TLS when Node auto-picks IPv6.
+  // Cache one client across warm invocations; drop rejected promises so
+  // cold starts can recover.
   const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 20000,
-    // Prefer IPv4; some Windows/ISP setups fail TLS over IPv6 to Atlas.
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: false,
+      deprecationErrors: false,
+    },
+    serverSelectionTimeoutMS: 15000,
+    connectTimeoutMS: 15000,
+    // Avoid Happy Eyeballs IPv6-first handshake failures to Atlas.
+    autoSelectFamily: false,
     family: 4,
+    tls: true,
+    maxPoolSize: 10,
+    minPoolSize: 0,
   });
+
   return client.connect();
 }
 
 function getClientPromise(): Promise<MongoClient> {
-  // Cache one client in development (HMR), but drop a rejected promise so
-  // transient TLS / network errors can recover without restarting the server.
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-      global._mongoClientPromise = createClientPromise().catch((err) => {
-        global._mongoClientPromise = undefined;
-        throw err;
-      });
-    }
-    return global._mongoClientPromise;
+  if (!global._mongoClientPromise) {
+    global._mongoClientPromise = createClientPromise().catch((err) => {
+      global._mongoClientPromise = undefined;
+      throw err;
+    });
   }
-  return createClientPromise();
+  return global._mongoClientPromise;
 }
 
 export async function getDb(dbName = "fragnance"): Promise<Db> {
