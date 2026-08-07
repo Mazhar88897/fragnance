@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
 
     const detailsParsed = parseDetails(body.details ?? {});
     if (detailsParsed.error) return jsonError(detailsParsed.error, 400);
+    if (!detailsParsed.details) return jsonError("details is required", 400);
 
     const scentParsed = parseIdList(body.scent_type ?? [], "scent_type");
     if (scentParsed.error) return jsonError(scentParsed.error, 400);
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
       name,
       scent_type: scentIds,
       occasion: occasionIds,
-      details: detailsParsed.details ?? {},
+      details: detailsParsed.details,
       created_at: now,
       updated_at: now,
     };
@@ -212,7 +213,8 @@ export async function PUT(request: NextRequest) {
     if (body.details !== undefined) {
       const detailsParsed = parseDetails(body.details);
       if (detailsParsed.error) return jsonError(detailsParsed.error, 400);
-      updates.details = detailsParsed.details ?? {};
+      if (!detailsParsed.details) return jsonError("details is required", 400);
+      updates.details = detailsParsed.details;
     }
 
     if (body.scent_type !== undefined) {
