@@ -85,20 +85,17 @@ function ensureSrvQuery(value: string): string {
 function clientOptions(): MongoClientOptions {
   const onVercel = Boolean(process.env.VERCEL);
 
-  const options: MongoClientOptions = {
+  return {
     serverSelectionTimeoutMS: 20000,
     connectTimeoutMS: 20000,
     socketTimeoutMS: 45000,
     maxPoolSize: onVercel ? 5 : 10,
     minPoolSize: 0,
-    // Critical for Node 18+/OpenSSL Happy Eyeballs vs Atlas
+    // Prevents Happy-Eyeballs IPv6-first failures against Atlas
     autoSelectFamily: false,
+    // Prefer IPv4 everywhere (Windows local + Vercel)
+    family: 4,
   };
-
-  // Force IPv4 — Atlas TLS alert 80 is commonly IPv6-related
-  options.family = 4;
-
-  return options;
 }
 
 function createClientPromise(): Promise<MongoClient> {
@@ -219,6 +216,8 @@ export type BlogDoc = {
   provider: string;
   description: string;
   author: string;
+  /** Marks a note as sponsored content */
+  sponsored: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -226,4 +225,113 @@ export type BlogDoc = {
 export async function getBlogsCollection(): Promise<Collection<BlogDoc>> {
   const db = await getDb();
   return db.collection<BlogDoc>("blogs");
+}
+
+export type SponsoredPerfumeRetailer = {
+  name: string;
+  url: string;
+};
+
+export type SponsoredPerfumeDetails = {
+  brand: string;
+  description: string;
+  rating: number;
+  retailers: SponsoredPerfumeRetailer[];
+};
+
+export type SponsoredPerfumeDoc = {
+  _id?: import("mongodb").ObjectId;
+  name: string;
+  scent_type: import("mongodb").ObjectId[];
+  occasion: import("mongodb").ObjectId[];
+  details: SponsoredPerfumeDetails;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getSponsoredPerfumesCollection(): Promise<
+  Collection<SponsoredPerfumeDoc>
+> {
+  const db = await getDb();
+  return db.collection<SponsoredPerfumeDoc>("sponsored_perfumes");
+}
+
+/** Structured comparison payload for perfume alternatives */
+export type AlternativeFragrancePrice = {
+  amount: number;
+  currency: string;
+  size: string;
+};
+
+export type AlternativeFragranceSide = {
+  name: string;
+  brand: string;
+  price: AlternativeFragrancePrice;
+  notes: string[];
+};
+
+export type AlternativeComparison = {
+  closeness: string;
+  comparison: {
+    fragrance1: AlternativeFragranceSide;
+    fragrance2: AlternativeFragranceSide;
+  };
+  review: {
+    summary: string;
+    performance: string;
+    disclaimer: string;
+  };
+};
+
+export type AlternativeDoc = {
+  _id?: import("mongodb").ObjectId;
+  name: string;
+  scent_type: import("mongodb").ObjectId[];
+  occasion: import("mongodb").ObjectId[];
+  comparison: AlternativeComparison;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getAlternativesCollection(): Promise<
+  Collection<AlternativeDoc>
+> {
+  const db = await getDb();
+  return db.collection<AlternativeDoc>("alternatives");
+}
+
+export type FilmDetails = {
+  brand: string;
+  location: { city: string; country: string };
+  date: string;
+  duration: string;
+  url: string;
+  description: string;
+};
+
+export type FilmDoc = {
+  _id?: import("mongodb").ObjectId;
+  name: string;
+  details: FilmDetails;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getFilmsCollection(): Promise<Collection<FilmDoc>> {
+  const db = await getDb();
+  return db.collection<FilmDoc>("films");
+}
+
+export type NewsletterEmailDoc = {
+  _id?: import("mongodb").ObjectId;
+  email: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getNewsletterEmailsCollection(): Promise<
+  Collection<NewsletterEmailDoc>
+> {
+  const db = await getDb();
+  return db.collection<NewsletterEmailDoc>("newsletter_emails");
 }

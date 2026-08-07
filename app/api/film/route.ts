@@ -1,37 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { getBlogsCollection, type BlogDoc } from "@/lib/mongodb";
+import {
+  getFilmsCollection,
+  type FilmDetails,
+  type FilmDoc,
+} from "@/lib/mongodb";
 
-type BlogInput = {
+type FilmInput = {
   id?: string;
-  title?: string;
-  provider?: string;
-  description?: string;
-  author?: string;
-  sponsored?: boolean;
+  name?: string;
+  details?: unknown;
 };
 
 function jsonError(message: string, status: number, details?: unknown) {
   return NextResponse.json({ ok: false, message, details }, { status });
 }
 
-function serialize(doc: BlogDoc & { _id: ObjectId }) {
+function serialize(doc: FilmDoc & { _id: ObjectId }) {
   return {
     id: doc._id.toHexString(),
-    title: doc.title,
-    provider: doc.provider,
-    description: doc.description,
-    author: doc.author,
-    sponsored: Boolean(doc.sponsored),
+    name: doc.name,
+    details: doc.details ?? {},
     created_at: doc.created_at.toISOString(),
     updated_at: doc.updated_at.toISOString(),
   };
 }
 
-/** GET — list blogs */
+function parseDetails(
+  value: unknown
+): { details?: FilmDetails; error?: string } {
+  if (value === undefined) return {};
+  if (value === null) {
+    return { error: "details must be a JSON object" };
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return { error: "details must be a JSON object (not an array or primitive)" };
+  }
+  return { details: value as FilmDetails };
+}
+
+/** GET — list films */
 export async function GET() {
   try {
-    const col = await getBlogsCollection();
+    const col = await getFilmsCollection();
     const docs = await col.find({}).sort({ created_at: -1 }).toArray();
 
     return NextResponse.json({
@@ -45,32 +56,25 @@ export async function GET() {
   }
 }
 
-/** POST — create blog */
+/** POST — create film */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as BlogInput;
-    const title = body.title?.trim();
-    const provider = body.provider?.trim();
-    const description = body.description?.trim();
-    const author = body.author?.trim();
+    const body = (await request.json()) as FilmInput;
+    const name = body.name?.trim();
+    if (!name) return jsonError("name is required", 400);
 
-    if (!title) return jsonError("title is required", 400);
-    if (!provider) return jsonError("provider is required", 400);
-    if (!description) return jsonError("description is required", 400);
-    if (!author) return jsonError("author is required", 400);
+    const detailsParsed = parseDetails(body.details ?? {});
+    if (detailsParsed.error) return jsonError(detailsParsed.error, 400);
 
     const now = new Date();
-    const doc: BlogDoc = {
-      title,
-      provider,
-      description,
-      author,
-      sponsored: body.sponsored === true,
+    const doc: FilmDoc = {
+      name,
+      details: detailsParsed.details ?? {},
       created_at: now,
       updated_at: now,
     };
 
-    const col = await getBlogsCollection();
+    const col = await getFilmsCollection();
     const result = await col.insertOne(doc);
 
     return NextResponse.json(
@@ -86,45 +90,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** PUT — update blog by id */
+/** PUT — update film by id */
 export async function PUT(request: NextRequest) {
   try {
-    const body = (await request.json()) as BlogInput;
+    const body = (await request.json()) as FilmInput;
     if (!body.id) return jsonError("id is required", 400);
     if (!ObjectId.isValid(body.id)) return jsonError("invalid id", 400);
 
-    const updates: Partial<BlogDoc> = {
+    const updates: Partial<FilmDoc> = {
       updated_at: new Date(),
     };
 
-    if (typeof body.title === "string") {
-      const title = body.title.trim();
-      if (!title) return jsonError("title cannot be empty", 400);
-      updates.title = title;
-    }
-    if (typeof body.provider === "string") {
-      const provider = body.provider.trim();
-      if (!provider) return jsonError("provider cannot be empty", 400);
-      updates.provider = provider;
-    }
-    if (typeof body.description === "string") {
-      const description = body.description.trim();
-      if (!description) return jsonError("description cannot be empty", 400);
-      updates.description = description;
-    }
-    if (typeof body.author === "string") {
-      const author = body.author.trim();
-      if (!author) return jsonError("author cannot be empty", 400);
-      updates.author = author;
-    }
-    if (body.sponsored !== undefined) {
-      if (typeof body.sponsored !== "boolean") {
-        return jsonError("sponsored must be a boolean", 400);
-      }
-      updates.sponsored = body.sponsored;
+    if (typeof body.name === "string") {
+      const name = body.name.trim();
+      if (!name) return jsonError("name cannot be empty", 400);
+      updates.name = name;
     }
 
-    const col = await getBlogsCollection();
+    if (body.details !== undefined) {
+      const detailsParsed = parseDetails(body.details);
+      if (detailsParsed.error) return jsonError(detailsParsed.error, 400);
+      updates.details = detailsParsed.details ?? {};
+    }
+
+    const col = await getFilmsCollection();
     const result = await col.findOneAndUpdate(
       { _id: new ObjectId(body.id) },
       { $set: updates },
@@ -143,14 +132,14 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-/** DELETE — delete blog by id (?id=...) */
+/** DELETE — delete film by id (?id=...) */
 export async function DELETE(request: NextRequest) {
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) return jsonError("id query param is required", 400);
     if (!ObjectId.isValid(id)) return jsonError("invalid id", 400);
 
-    const col = await getBlogsCollection();
+    const col = await getFilmsCollection();
     const result = await col.deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) return jsonError("row not found", 404);

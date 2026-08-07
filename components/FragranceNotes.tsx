@@ -8,6 +8,7 @@ type BlogRow = {
   provider: string;
   description: string;
   author: string;
+  sponsored?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -49,6 +50,20 @@ function formatDate(iso: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function SponsoredTag({ size = "md" }: { size?: "sm" | "md" }) {
+  return (
+    <span
+      className={`inline-block bg-yellow-400 font-[family-name:var(--font-geist-mono)]  uppercase tracking-[0.08em] text-neutral-500 ${
+        size === "sm"
+          ? "px-2 py-0.5 text-[0.55rem]"
+          : "px-2.5 py-1 text-[0.65rem] shadow-[2px_2px_0_#000]"
+      }`}
+    >
+      Sponsored
+    </span>
+  );
 }
 
 function BlogBody({ content }: { content: string }) {
@@ -124,9 +139,13 @@ function BlogPopup({
 
         <div className="overflow-y-auto p-6 sm:p-10">
           <div className="flex flex-wrap items-center gap-3 pr-10">
-            <span className="inline-block border border-black bg-white px-2.5 py-1 font-[family-name:var(--font-geist-mono)] text-[0.65rem] font-medium uppercase tracking-[0.12em] text-black shadow-[2px_2px_0_#000]">
-              {post.provider}
-            </span>
+            {post.sponsored ? (
+              <SponsoredTag />
+            ) : (
+              <span className="inline-block border border-black bg-white px-2.5 py-1 font-[family-name:var(--font-geist-mono)] text-[0.65rem] font-medium uppercase tracking-[0.12em] text-black shadow-[2px_2px_0_#000]">
+                {post.provider}
+              </span>
+            )}
             <time
               dateTime={post.created_at}
               className="font-[family-name:var(--font-geist-mono)] text-[0.7rem] text-neutral-400"
@@ -197,7 +216,7 @@ export default function FragranceNotes() {
   );
 
   return (
-    <section className="bg-white px-5 py-14 sm:px-8 sm:py-16 lg:px-12">
+    <section id="notes" className="scroll-mt-[4.25rem] bg-white px-5 py-14 sm:px-8 sm:py-16 lg:px-12">
       <div className="mx-auto w-full max-w-[1400px]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
           <h2 className="font-[family-name:var(--font-hero-serif)] text-[clamp(2rem,5vw,3.25rem)] font-medium leading-[1.05] tracking-[-0.02em] text-black">
@@ -237,9 +256,13 @@ export default function FragranceNotes() {
                 className="group flex h-full flex-col border border-black bg-white p-5 text-left shadow-[3px_3px_0_#000] transition-colors hover:bg-[#f7f7f5] sm:p-6"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="font-[family-name:var(--font-geist-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-neutral-400">
-                    {post.provider}
-                  </span>
+                  {post.sponsored ? (
+                    <SponsoredTag size="sm" />
+                  ) : (
+                    <span className="font-[family-name:var(--font-geist-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-neutral-400">
+                      {post.provider}
+                    </span>
+                  )}
                   <time
                     dateTime={post.created_at}
                     className="shrink-0 text-[0.7rem] text-neutral-400"

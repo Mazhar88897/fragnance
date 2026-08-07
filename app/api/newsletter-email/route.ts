@@ -1,37 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { getBlogsCollection, type BlogDoc } from "@/lib/mongodb";
+import {
+  getNewsletterEmailsCollection,
+  type NewsletterEmailDoc,
+} from "@/lib/mongodb";
 
-type BlogInput = {
+type NewsletterInput = {
   id?: string;
-  title?: string;
-  provider?: string;
-  description?: string;
-  author?: string;
-  sponsored?: boolean;
+  email?: string;
 };
 
 function jsonError(message: string, status: number, details?: unknown) {
   return NextResponse.json({ ok: false, message, details }, { status });
 }
 
-function serialize(doc: BlogDoc & { _id: ObjectId }) {
+function serialize(doc: NewsletterEmailDoc & { _id: ObjectId }) {
   return {
     id: doc._id.toHexString(),
-    title: doc.title,
-    provider: doc.provider,
-    description: doc.description,
-    author: doc.author,
-    sponsored: Boolean(doc.sponsored),
+    email: doc.email,
     created_at: doc.created_at.toISOString(),
     updated_at: doc.updated_at.toISOString(),
   };
 }
 
-/** GET — list blogs */
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/** GET — list newsletter emails */
 export async function GET() {
   try {
-    const col = await getBlogsCollection();
+    const col = await getNewsletterEmailsCollection();
     const docs = await col.find({}).sort({ created_at: -1 }).toArray();
 
     return NextResponse.json({
@@ -45,37 +48,37 @@ export async function GET() {
   }
 }
 
-/** POST — create blog */
+/** POST — create / subscribe */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as BlogInput;
-    const title = body.title?.trim();
-    const provider = body.provider?.trim();
-    const description = body.description?.trim();
-    const author = body.author?.trim();
+    const body = (await request.json()) as NewsletterInput;
+    const email = normalizeEmail(body.email ?? "");
+    if (!email) return jsonError("email is required", 400);
+    if (!isValidEmail(email)) return jsonError("invalid email", 400);
 
-    if (!title) return jsonError("title is required", 400);
-    if (!provider) return jsonError("provider is required", 400);
-    if (!description) return jsonError("description is required", 400);
-    if (!author) return jsonError("author is required", 400);
+    const col = await getNewsletterEmailsCollection();
+    const existing = await col.findOne({ email });
+    if (existing) {
+      return NextResponse.json({
+        ok: true,
+        already_subscribed: true,
+        row: serialize({ ...existing, _id: existing._id! }),
+        message: "Already subscribed.",
+      });
+    }
 
     const now = new Date();
-    const doc: BlogDoc = {
-      title,
-      provider,
-      description,
-      author,
-      sponsored: body.sponsored === true,
+    const doc: NewsletterEmailDoc = {
+      email,
       created_at: now,
       updated_at: now,
     };
-
-    const col = await getBlogsCollection();
     const result = await col.insertOne(doc);
 
     return NextResponse.json(
       {
         ok: true,
+        already_subscribed: false,
         row: serialize({ _id: result.insertedId, ...doc }),
       },
       { status: 201 }
@@ -86,45 +89,37 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** PUT — update blog by id */
+/** PUT — update email by id */
 export async function PUT(request: NextRequest) {
   try {
-    const body = (await request.json()) as BlogInput;
+    const body = (await request.json()) as NewsletterInput;
     if (!body.id) return jsonError("id is required", 400);
     if (!ObjectId.isValid(body.id)) return jsonError("invalid id", 400);
 
-    const updates: Partial<BlogDoc> = {
+    const updates: Partial<NewsletterEmailDoc> = {
       updated_at: new Date(),
     };
 
-    if (typeof body.title === "string") {
-      const title = body.title.trim();
-      if (!title) return jsonError("title cannot be empty", 400);
-      updates.title = title;
-    }
-    if (typeof body.provider === "string") {
-      const provider = body.provider.trim();
-      if (!provider) return jsonError("provider cannot be empty", 400);
-      updates.provider = provider;
-    }
-    if (typeof body.description === "string") {
-      const description = body.description.trim();
-      if (!description) return jsonError("description cannot be empty", 400);
-      updates.description = description;
-    }
-    if (typeof body.author === "string") {
-      const author = body.author.trim();
-      if (!author) return jsonError("author cannot be empty", 400);
-      updates.author = author;
-    }
-    if (body.sponsored !== undefined) {
-      if (typeof body.sponsored !== "boolean") {
-        return jsonError("sponsored must be a boolean", 400);
-      }
-      updates.sponsored = body.sponsored;
+    if (typeof body.email === "string") {
+      const email = normalizeEmail(body.email);
+      if (!email) return jsonError("email cannot be empty", 400);
+      if (!isValidEmail(email)) return jsonError("invalid email", 400);
+
+      const col = await getNewsletterEmailsCollection();
+      const clash = await col.findOne({
+        email,
+        _id: { $ne: new ObjectId(body.id) },
+      });
+      if (clash) return jsonError("email already subscribed", 409);
+
+      updates.email = email;
     }
 
-    const col = await getBlogsCollection();
+    if (Object.keys(updates).length === 1) {
+      return jsonError("nothing to update", 400);
+    }
+
+    const col = await getNewsletterEmailsCollection();
     const result = await col.findOneAndUpdate(
       { _id: new ObjectId(body.id) },
       { $set: updates },
@@ -143,14 +138,14 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-/** DELETE — delete blog by id (?id=...) */
+/** DELETE — delete by id (?id=...) */
 export async function DELETE(request: NextRequest) {
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) return jsonError("id query param is required", 400);
     if (!ObjectId.isValid(id)) return jsonError("invalid id", 400);
 
-    const col = await getBlogsCollection();
+    const col = await getNewsletterEmailsCollection();
     const result = await col.deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) return jsonError("row not found", 404);

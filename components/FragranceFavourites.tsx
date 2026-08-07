@@ -375,7 +375,7 @@ export default function FragranceFavourites() {
   );
 
   return (
-    <section className="bg-white px-5 py-14 sm:px-8 sm:py-16 lg:px-12">
+    <section id="favourites" className="scroll-mt-[4.25rem] bg-white px-5 py-14 sm:px-8 sm:py-16 lg:px-12">
       <div className="mx-auto w-full max-w-[1400px]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
           <h2 className="font-[family-name:var(--font-hero-serif)] text-[clamp(2rem,5vw,3.25rem)] font-medium leading-[1.05] tracking-[-0.02em] text-black">

@@ -14,6 +14,10 @@ const navLinks = [
   { href: "/admin/main/fragnances", label: "Fragnances" },
   { href: "/admin/main/reviews", label: "Reviews" },
   { href: "/admin/main/scents-and-occassions", label: "Scents & Occassions" },
+  { href: "/admin/main/sponsored-perfumes", label: "Sponsored" },
+  { href: "/admin/main/films", label: "Films" },
+  { href: "/admin/main/alternatives", label: "Alternatives" },
+  { href: "/admin/main/newsletter-emails", label: "Newsletter" },
 ];
 
 export default function AdminMainShell({

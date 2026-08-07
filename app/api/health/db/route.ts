@@ -40,7 +40,12 @@ export async function GET() {
       /alert number 80|TLSV1_ALERT_INTERNAL_ERROR|ssl3_read_bytes/i.test(
         err.message + (causeMessage ?? "")
       )
-        ? "TLS alert 80 from Atlas almost always means Network Access is blocking this IP (or the URI is the old host-list form). In Atlas → Network Access, allow 0.0.0.0/0. Then in Atlas → Connect → Drivers, copy the mongodb+srv:// string into Vercel MONGODB_URI (URL-encode any special characters in the password)."
+        ? [
+            "Atlas aborted the TLS handshake (alert 80). This is almost never a bad password — Atlas does that when your IP is not allowed.",
+            "Fix: MongoDB Atlas → Network Access → Add IP Address → Allow Access from Anywhere → 0.0.0.0/0 → Confirm.",
+            "Wait 1–2 minutes, then reload this URL. Also confirm the cluster is not Paused (Atlas → Database).",
+            "Optional: set Vercel MONGODB_URI to the mongodb+srv:// string from Atlas Connect → Drivers, and URL-encode special password characters.",
+          ].join(" ")
         : undefined;
 
     return NextResponse.json(

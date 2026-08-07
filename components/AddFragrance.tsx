@@ -401,7 +401,7 @@ export default function AddFragrance() {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="relative overflow-hidden bg-white px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
+    <section id="add-scent" className="relative scroll-mt-[4.25rem] overflow-hidden bg-white px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.06)_0%,transparent_70%)]"
         aria-hidden
