@@ -148,7 +148,7 @@ function BottleRow({ stripId }: { stripId: string }) {
       {BOTTLES.map(({ Shape, color, shape }, index) => (
         <div
           key={`${stripId}-${shape}-${index}`}
-          className="flex shrink-0 items-end justify-center px-2.5 sm:px-3.5"
+          className="flex shrink-0 items-end justify-center px-[1rem] sm:px-[1.75rem]"
         >
           <Shape color={color} className="h-11 w-auto sm:h-12 lg:h-[3.25rem]" />
         </div>

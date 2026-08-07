@@ -90,11 +90,11 @@ export default function TopBar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#3a3a3a] bg-white">
+    <header className="sticky top-0 z-40 w-full border-b-2 bg-white">
       <div className="mx-auto flex h-[4.25rem] max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
         <Link
           href="/"
-          className="shrink-0 text-[0.95rem] font-medium uppercase tracking-[0.12em] text-[#3a3a3a] sm:text-[1.05rem]"
+          className="shrink-0 text-sm font-medium uppercase tracking-[0.12em] text-[#3a3a3a] sm:text-xs"
         >
           Mister Fragrant
         </Link>

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import RatingSegments, {
+  emptyRatingBreakdown,
+  postedRating,
+  type RatingBreakdown,
+} from "@/components/RatingSegments";
 
 type ReviewItem = {
   name: string;
@@ -37,7 +42,9 @@ export default function ReviewsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [rating, setRating] = useState<number | null>(null);
+  const [breakdown, setBreakdown] = useState<RatingBreakdown>(
+    emptyRatingBreakdown
+  );
   const [name, setName] = useState("");
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -73,8 +80,9 @@ export default function ReviewsPanel({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const rating = postedRating(breakdown);
     if (rating == null) {
-      setSubmitMessage("Pick a rating from 1–10.");
+      setSubmitMessage("Rate projection, originality, and value.");
       return;
     }
     if (!comment.trim()) {
@@ -105,7 +113,7 @@ export default function ReviewsPanel({
       setSubmitMessage("Review submitted — pending approval.");
       setName("");
       setComment("");
-      setRating(null);
+      setBreakdown(emptyRatingBreakdown());
       await loadSummary();
     } catch (err) {
       setSubmitMessage(
@@ -180,24 +188,7 @@ export default function ReviewsPanel({
         onSubmit={handleSubmit}
         className="border-t border-black px-4 py-5 sm:px-5"
       >
-        <div className="flex flex-wrap gap-1.5">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setRating(n)}
-              className={`flex h-8 w-8 items-center justify-center border border-black font-[family-name:var(--font-geist-mono)] text-[0.7rem] transition-colors ${
-                rating === n
-                  ? "bg-black text-white"
-                  : "bg-white text-black hover:bg-neutral-100"
-              }`}
-              aria-label={`Rate ${n} out of 10`}
-              aria-pressed={rating === n}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+        <RatingSegments value={breakdown} onChange={setBreakdown} />
 
         <input
           type="text"

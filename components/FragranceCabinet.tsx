@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ReviewsPanel from "@/components/ReviewsPanel";
 import WhereToBuyPanel from "@/components/WhereToBuyPanel";
+import CompareTray, {
+  toggleCompareSelection,
+  type CompareItem,
+} from "@/components/CompareTray";
 
 type NamedEntity = {
   id: string;
@@ -81,14 +84,18 @@ function FragranceCard({
   fragrance,
   reviewsOpen,
   buyOpen,
+  compareSelected,
   onToggleReviews,
   onToggleBuy,
+  onToggleCompare,
 }: {
   fragrance: FragranceRow;
   reviewsOpen: boolean;
   buyOpen: boolean;
+  compareSelected: boolean;
   onToggleReviews: () => void;
   onToggleBuy: () => void;
+  onToggleCompare: () => void;
 }) {
   const scentLabel = fragrance.scent_type[0]?.name ?? "Uncategorized";
   const btnBase =
@@ -135,12 +142,18 @@ function FragranceCard({
           <span aria-hidden>{buyOpen ? "▴" : "↗"}</span>
         </button>
 
-        <Link
-          href={`/compare?add=${fragrance.id}`}
-          className={`${btnBase} bg-white text-black shadow-[1.5px_1.5px_0_#000]`}
+        <button
+          type="button"
+          onClick={onToggleCompare}
+          aria-pressed={compareSelected}
+          className={`${btnBase} ${
+            compareSelected
+              ? "bg-black text-white"
+              : "bg-white text-black shadow-[1.5px_1.5px_0_#000]"
+          }`}
         >
-          + Compare
-        </Link>
+          {compareSelected ? "✓ Compare" : "+ Compare"}
+        </button>
       </div>
     </article>
   );
@@ -159,6 +172,19 @@ export default function FragranceCabinet() {
     () => new Set()
   );
   const [openBuyIds, setOpenBuyIds] = useState<Set<string>>(() => new Set());
+  const [compareItems, setCompareItems] = useState<CompareItem[]>([]);
+
+  function toCompareItem(fragrance: FragranceRow): CompareItem {
+    return {
+      id: fragrance.id,
+      name: fragrance.name,
+      brand: fragrance.brand,
+      occasion: fragrance.occasion,
+      scent_type: fragrance.scent_type,
+      total_votes: fragrance.total_votes,
+      average_rating: fragrance.average_rating,
+    };
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -330,10 +356,15 @@ export default function FragranceCabinet() {
                 fragrance,
                 reviewsOpen,
                 buyOpen,
+                compareSelected: compareItems.some((c) => c.id === fragrance.id),
                 onToggleReviews: () =>
                   setOpenReviewsIds((s) => toggleId(s, fragrance.id)),
                 onToggleBuy: () =>
                   setOpenBuyIds((s) => toggleId(s, fragrance.id)),
+                onToggleCompare: () =>
+                  setCompareItems((list) =>
+                    toggleCompareSelection(list, toCompareItem(fragrance))
+                  ),
               };
 
               if (expanded) {
@@ -377,6 +408,14 @@ export default function FragranceCabinet() {
           </p>
         ) : null}
       </div>
+
+      <CompareTray
+        items={compareItems}
+        onRemove={(id) =>
+          setCompareItems((list) => list.filter((item) => item.id !== id))
+        }
+        onClear={() => setCompareItems([])}
+      />
     </section>
   );
 }

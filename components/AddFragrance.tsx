@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import RatingSegments, {
+  emptyRatingBreakdown,
+  postedRating,
+  type RatingBreakdown,
+} from "@/components/RatingSegments";
 
 type NamedEntity = {
   id: string;
@@ -40,7 +45,9 @@ function AddFragranceModal({ onClose }: { onClose: () => void }) {
   const [brand, setBrand] = useState("");
   const [scentTypeId, setScentTypeId] = useState("");
   const [occasionId, setOccasionId] = useState("");
-  const [rating, setRating] = useState<number | null>(null);
+  const [breakdown, setBreakdown] = useState<RatingBreakdown>(
+    emptyRatingBreakdown
+  );
   const [review, setReview] = useState("");
   const [reviewerName, setReviewerName] = useState("");
 
@@ -116,8 +123,9 @@ function AddFragranceModal({ onClose }: { onClose: () => void }) {
       setError("Pick a scent type.");
       return;
     }
+    const rating = postedRating(breakdown);
     if (rating == null) {
-      setError("Pick a rating from 1–10.");
+      setError("Rate projection, originality, and value.");
       return;
     }
     if (!trimmedReview) {
@@ -326,24 +334,7 @@ function AddFragranceModal({ onClose }: { onClose: () => void }) {
 
                 <div>
                   <p className={fieldLabel}>Your rating</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setRating(n)}
-                        className={`flex h-9 w-9 items-center justify-center border border-black font-[family-name:var(--font-geist-mono)] text-[0.75rem] transition-colors ${
-                          rating === n
-                            ? "bg-black text-white"
-                            : "bg-white text-black hover:bg-neutral-100"
-                        }`}
-                        aria-label={`Rate ${n} out of 10`}
-                        aria-pressed={rating === n}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
+                  <RatingSegments value={breakdown} onChange={setBreakdown} />
                 </div>
 
                 <div>
