@@ -17,7 +17,7 @@ export default function BottomBar() {
         </div>
 
         <p className="font-[family-name:var(--font-geist-sans)] text-[0.75rem] text-neutral-400 sm:text-[0.8rem]">
-          © 2024 — Vol. 01
+          © {new Date().getFullYear()} — Vol. 01
         </p>
       </div>
     </footer>

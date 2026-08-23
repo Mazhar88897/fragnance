@@ -66,6 +66,42 @@ function locationLine(details: FilmDetails) {
   return brand || place || "";
 }
 
+/** Extract a YouTube video id from watch / share / embed / shorts URLs. */
+function youtubeVideoId(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.replace(/^www\./, "");
+
+    if (host === "youtu.be") {
+      const id = parsed.pathname.split("/").filter(Boolean)[0];
+      return id || null;
+    }
+
+    if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+      const v = parsed.searchParams.get("v");
+      if (v) return v;
+
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") {
+        return parts[1] || null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function youtubeEmbedUrl(url: string): string | null {
+  const id = youtubeVideoId(url);
+  if (!id) return null;
+  return `https://www.youtube.com/embed/${id}?rel=0`;
+}
+
 function FilmBody({ content }: { content: string }) {
   if (looksLikeHtml(content)) {
     return (
@@ -86,38 +122,42 @@ function FilmBody({ content }: { content: string }) {
 function MediaPanel({
   latest,
   url,
-  onPlay,
+  title,
 }: {
   latest?: boolean;
   url?: string;
-  onPlay?: () => void;
+  title?: string;
 }) {
+  const embedSrc = url ? youtubeEmbedUrl(url) : null;
+
   return (
     <div
-      className="relative aspect-[16/9] w-full border-b border-black"
-      style={{
-        backgroundImage:
-          "repeating-linear-gradient(-45deg, #e8e8e8 0 1px, #f3f3f3 1px 14px)",
-      }}
+      className="relative aspect-[16/9] w-full border-b border-black bg-black"
+      style={
+        embedSrc
+          ? undefined
+          : {
+              backgroundImage:
+                "repeating-linear-gradient(-45deg, #e8e8e8 0 1px, #f3f3f3 1px 14px)",
+            }
+      }
     >
-      {latest ? (
+      {embedSrc ? (
+        <iframe
+          src={embedSrc}
+          title={title ? `${title} — YouTube` : "YouTube video"}
+          className="absolute inset-0 h-full w-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      ) : null}
+
+      {latest && !embedSrc ? (
         <span className="absolute bottom-3 right-4 font-[family-name:var(--font-geist-mono)] text-[0.6rem] uppercase tracking-[0.14em] text-neutral-400">
           Latest episode
         </span>
-      ) : null}
-
-      {url ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay?.();
-          }}
-          className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black bg-white shadow-[2px_2px_0_#000] transition-transform duration-200 hover:scale-105"
-          aria-label="Watch episode"
-        >
-          <span className="ml-0.5 inline-block h-0 w-0 border-y-[7px] border-l-[12px] border-y-transparent border-l-black" />
-        </button>
       ) : null}
     </div>
   );
@@ -137,14 +177,9 @@ function FeaturedCard({
   const meta = [dateLabel, duration].filter(Boolean).join(" · ");
   const place = locationLine(details);
 
-  function openUrl() {
-    if (!details.url) return;
-    window.open(details.url, "_blank", "noopener,noreferrer");
-  }
-
   return (
     <article className="overflow-hidden border border-black bg-white shadow-[4px_4px_0_#000]">
-      <MediaPanel latest={latest} url={details.url} onPlay={openUrl} />
+      <MediaPanel latest={latest} url={details.url} title={film.name} />
 
       <div className="p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-3">
@@ -174,24 +209,11 @@ function FeaturedCard({
           </p>
         ) : null}
 
-        <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
-          {place ? (
-            <p className="font-[family-name:var(--font-geist-mono)] text-[0.7rem] text-neutral-400">
-              {place}
-            </p>
-          ) : (
-            <span />
-          )}
-          {details.url ? (
-            <button
-              type="button"
-              onClick={openUrl}
-              className="font-[family-name:var(--font-geist-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-neutral-500 transition-colors hover:text-black"
-            >
-              Watch episode →
-            </button>
-          ) : null}
-        </div>
+        {place ? (
+          <p className="mt-8 font-[family-name:var(--font-geist-mono)] text-[0.7rem] text-neutral-400">
+            {place}
+          </p>
+        ) : null}
       </div>
     </article>
   );
@@ -220,11 +242,6 @@ function FilmPopup({
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
-
-  function openUrl() {
-    if (!details.url) return;
-    window.open(details.url, "_blank", "noopener,noreferrer");
-  }
 
   const dateLabel = details.date ? formatFilmDate(details.date) : "";
   const duration = details.duration ?? "";
@@ -256,7 +273,7 @@ function FilmPopup({
         </button>
 
         <div className="overflow-y-auto">
-          <MediaPanel url={details.url} onPlay={openUrl} />
+          <MediaPanel url={details.url} title={film.name} />
 
           <div className="p-6 sm:p-10">
             <div className="flex flex-wrap items-center gap-3 pr-10">
@@ -284,16 +301,6 @@ function FilmPopup({
               <p className="mt-8 font-[family-name:var(--font-geist-mono)] text-[0.7rem] text-neutral-400">
                 {place}
               </p>
-            ) : null}
-
-            {details.url ? (
-              <button
-                type="button"
-                onClick={openUrl}
-                className="mt-6 border border-black bg-black px-4 py-2.5 font-[family-name:var(--font-geist-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-white shadow-[3px_3px_0_#000] transition-[transform,box-shadow] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_#000]"
-              >
-                Watch episode →
-              </button>
             ) : null}
           </div>
         </div>
