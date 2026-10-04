@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Libre_Bodoni } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono, Libre_Bodoni } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,9 +18,14 @@ const heroSerif = Libre_Bodoni({
   weight: ["400", "500", "600", "700"],
 });
 
+const displaySerif = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "Mister Fragrant",
-  description: "Stay cool. Smell great.",
+  title: "Majlis",
+  description: "Discover gatherings. Keep a journal.",
 };
 
 export default function RootLayout({
@@ -31,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${heroSerif.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${heroSerif.variable} ${displaySerif.variable} antialiased`}
       >
         {children}
       </body>

@@ -1,143 +1,120 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import MajlisMark from "@/components/MajlisMark";
+import type { PublicUser } from "@/lib/auth-types";
+import { clearUserSession, getUserSession } from "@/lib/user-session";
 
 const navLinks = [
-  { href: "/#cabinet", id: "cabinet", label: "Cabinet" },
-  { href: "/#favourites", id: "favourites", label: "Favourites" },
-  { href: "/#alternatives", id: "alternatives", label: "Alternatives" },
-  { href: "/#notes", id: "notes", label: "Notes" },
-  { href: "/#films", id: "films", label: "Films" },
-  { href: "/#add-scent", id: "add-scent", label: "Add a scent" },
+  { href: "/", label: "Discover" },
+  { href: "/journal", label: "Journal" },
 ];
 
 export default function TopBar() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const router = useRouter();
+  const [user, setUser] = useState<PublicUser | null>(null);
 
   useEffect(() => {
-    if (pathname !== "/") {
-      setActiveId(null);
+    const session = getUserSession();
+    if (session?.user) {
+      setUser(session.user);
       return;
     }
 
-    const hash = window.location.hash.replace("#", "");
-    if (hash) {
-      const el = document.getElementById(hash);
-      if (el) {
-        requestAnimationFrame(() => {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-          setActiveId(hash);
-        });
-      }
-    }
-
-    const sections = navLinks
-      .map((link) => document.getElementById(link.id))
-      .filter((el): el is HTMLElement => Boolean(el));
-
-    if (sections.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]?.target?.id) {
-          setActiveId(visible[0].target.id);
-        }
-      },
-      {
-        rootMargin: "-30% 0px -55% 0px",
-        threshold: [0.1, 0.25, 0.5],
-      }
-    );
-
-    for (const section of sections) observer.observe(section);
-    return () => observer.disconnect();
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const json = (await res.json()) as { user?: PublicUser };
+        return json.user ?? null;
+      })
+      .then((next) => {
+        if (!cancelled) setUser(next);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
-  function linkClass(id: string) {
-    const active = pathname === "/" && activeId === id;
-    return [
-      "nav-underline relative pb-1 font-[family-name:var(--font-geist-mono)] text-[0.7rem] font-medium uppercase tracking-[0.14em] text-[#3a3a3a] transition-colors lg:text-[0.75rem]",
-      "after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:origin-left after:bg-black after:transition-transform after:duration-300 after:ease-out after:content-['']",
-      active
-        ? "text-black after:scale-x-100"
-        : "after:scale-x-0 hover:text-black hover:after:scale-x-100",
-    ].join(" ");
-  }
-
-  function handleNavClick(
-    e: React.MouseEvent<HTMLAnchorElement>,
-    id: string
-  ) {
-    setIsOpen(false);
-
-    if (pathname !== "/") return;
-
-    const el = document.getElementById(id);
-    if (!el) return;
-
-    e.preventDefault();
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.history.replaceState(null, "", `/#${id}`);
-    setActiveId(id);
+  async function signOut() {
+    await fetch("/api/auth/signout", { method: "POST" });
+    clearUserSession();
+    setUser(null);
+    router.push("/");
+    router.refresh();
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b-2 bg-white">
-      <div className="mx-auto flex h-[4.25rem] max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
+    <header className="sticky top-0 z-40 w-full bg-white [height:var(--topbar-height,4.25rem)]">
+      <div className="grid h-full w-full grid-cols-[1fr_auto_1fr] items-center px-6 sm:px-10 lg:px-14">
         <Link
           href="/"
-          className="shrink-0 text-sm font-medium uppercase tracking-[0.12em] text-[#3a3a3a] sm:text-xs"
+          className="flex items-center gap-[0.45rem] justify-self-start text-[#1c2118]"
         >
-          Mister Fragrant
+          <MajlisMark className="h-[0.95rem] w-[0.95rem]" />
+          <span className="font-[family-name:var(--font-display)] text-[1.375rem] font-medium leading-none tracking-[-0.02em]">
+            Majlis
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-5 md:flex lg:gap-7">
-          {navLinks.map((link) => (
-            <Link
-              key={link.id}
-              href={link.href}
-              onClick={(e) => handleNavClick(e, link.id)}
-              className={linkClass(link.id)}
-              aria-current={activeId === link.id ? "location" : undefined}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav className="flex items-center gap-8 justify-self-center">
+          {navLinks.map((link) => {
+            const active =
+              link.href === "/"
+                ? pathname === "/" || pathname.startsWith("/gatherings")
+                : pathname.startsWith(link.href);
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative font-[family-name:var(--font-display)] text-[1.05rem] leading-none tracking-[-0.01em] transition-colors ${
+                  active
+                    ? "pb-1.5 text-[#1c2118] after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-[#a6342a] after:content-['']"
+                    : "text-[#8c857c] hover:text-[#1c2118]"
+                }`}
+                aria-current={active ? "page" : undefined}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <button
-          type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center text-[#3a3a3a] md:hidden"
-          aria-label={isOpen ? "Close menu" : "Open menu"}
-          onClick={() => setIsOpen((open) => !open)}
-        >
-          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center justify-self-end gap-3">
+          {user ? (
+            <>
+              <Link
+                href="/dashboard"
+                className="hidden max-w-[10rem] truncate text-[0.85rem] text-[#1c2118] sm:inline"
+              >
+                {user.name}
+              </Link>
+              <button
+                type="button"
+                onClick={signOut}
+                className="text-[0.8rem] text-[#8c857c] transition-colors hover:text-[#1c2118]"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center rounded-full bg-black px-5 py-2.5 text-[0.8125rem] font-medium leading-none text-white transition-opacity hover:opacity-85"
+            >
+              <span className="sm:hidden">Sign in</span>
+              <span className="hidden sm:inline">Sign in to submit a gathering</span>
+            </Link>
+          )}
+        </div>
       </div>
-
-      {isOpen ? (
-        <nav className="flex flex-col gap-4 border-t border-[#3a3a3a] px-5 py-5 md:hidden">
-          {navLinks.map((link) => (
-            <Link
-              key={link.id}
-              href={link.href}
-              onClick={(e) => handleNavClick(e, link.id)}
-              className={`${linkClass(link.id)} w-fit`}
-              aria-current={activeId === link.id ? "location" : undefined}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      ) : null}
     </header>
   );
 }

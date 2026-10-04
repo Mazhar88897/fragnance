@@ -1,4 +1,5 @@
 import { MongoClient, Db, type Collection, type MongoClientOptions } from "mongodb";
+import { ADMIN_EMAILS, SUPER_ADMIN_EMAILS } from "@/lib/auth-types";
 
 const uri = process.env.MONGODB_URI;
 
@@ -48,7 +49,7 @@ function normalizeMongoUri(raw: string): string {
         if (!params.has("retryWrites")) params.set("retryWrites", "true");
         if (!params.has("w")) params.set("w", "majority");
         if (!params.has("appName") && !params.has("appname")) {
-          params.set("appName", "fragnance");
+          params.set("appName", "Majlis");
         }
         const path = dbName ? `/${dbName}` : "/";
         return `mongodb+srv://${auth}@${clusterHost}${path}?${params.toString()}`;
@@ -119,7 +120,7 @@ function getClientPromise(): Promise<MongoClient> {
   return global._mongoClientPromise;
 }
 
-export async function getDb(dbName = "fragnance"): Promise<Db> {
+export async function getDb(dbName = process.env.MONGODB_DB || "majlis"): Promise<Db> {
   const client = await getClientPromise();
   return client.db(dbName);
 }
@@ -334,4 +335,96 @@ export async function getNewsletterEmailsCollection(): Promise<
 > {
   const db = await getDb();
   return db.collection<NewsletterEmailDoc>("newsletter_emails");
+}
+
+export type UserDoc = {
+  _id?: import("mongodb").ObjectId;
+  name: string;
+  email: string;
+  businessName: string;
+  businessEmail: string | null;
+  passwordHash: string;
+  paymentStatus: boolean;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getUsersCollection(): Promise<Collection<UserDoc>> {
+  const db = await getDb();
+  const collection = db.collection<UserDoc>("users");
+  await collection.createIndex({ email: 1 }, { unique: true });
+  await collection.updateMany(
+    { email: { $in: [...ADMIN_EMAILS] } },
+    { $set: { isAdmin: true } }
+  );
+  await collection.updateMany(
+    { email: { $in: [...SUPER_ADMIN_EMAILS] } },
+    { $set: { isAdmin: true, isSuperAdmin: true } }
+  );
+  await collection.updateMany(
+    { isAdmin: { $exists: false } },
+    { $set: { isAdmin: false } }
+  );
+  await collection.updateMany(
+    { isSuperAdmin: { $exists: false } },
+    { $set: { isSuperAdmin: false } }
+  );
+  return collection;
+}
+
+export type JournalDoc = {
+  _id?: import("mongodb").ObjectId;
+  name: string;
+  description: string;
+  tags: string[];
+  about: string;
+  date_posted: Date;
+  slug: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getJournalCollection(): Promise<Collection<JournalDoc>> {
+  const db = await getDb();
+  const collection = db.collection<JournalDoc>("journal");
+  await collection.createIndex({ slug: 1 }, { unique: true });
+  return collection;
+}
+
+export type GatheringSpeaker = {
+  speaker_name: string;
+  role: string;
+};
+
+export type GatheringDoc = {
+  _id?: import("mongodb").ObjectId;
+  posted_by: import("mongodb").ObjectId;
+  title: string;
+  type: string;
+  type_id: string;
+  datetime: Date;
+  location: string;
+  location_link: string;
+  booking: string;
+  attendance: string;
+  about: string;
+  gathering_photos: string[];
+  speakers: GatheringSpeaker[];
+  approval: boolean;
+  extras: Record<string, unknown>;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export async function getPostedGatheringsCollection(): Promise<
+  Collection<GatheringDoc>
+> {
+  const db = await getDb();
+  const collection = db.collection<GatheringDoc>("gatherings");
+  await collection.createIndex({ posted_by: 1, datetime: -1 });
+  return collection;
 }
